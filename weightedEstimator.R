@@ -9,6 +9,8 @@
 # step 4. get the EM estimate results
 # step 5. save the estimation results
 
+## check the git effect
+
 #######################################
 #step 1
 #######################################
@@ -50,8 +52,8 @@ res.w <- list()
 for(chrName in human_chr_namelist){
   cat(paste("\n* Trnascript expression on ", chrName, " ..."))
   txEx <- processByChr(refData=refData, bam=bamData_1, chrName, readLength=75)
-  res[[chrName]] <- txEx$"EM"
-  res.w[[chrName]] <- txEx$"weighted"
+  #res[[chrName]] <- txEx$"EM"
+  #res.w[[chrName]] <- txEx$"weighted"
 }
 
 t_proc <- proc.time() - t_processing
