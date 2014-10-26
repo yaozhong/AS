@@ -50,9 +50,8 @@ loadBam <- function(bamfile){
 ##### casper further step of annotation processing.
 #humanDB <- procGenome(genDB, genomeName, mc.cores=6)
 
-
 #### one chromesone processing
-processByChr <- function(refData, bam, chrName, readLength){
+processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
   
   txExList <- list()
   fpkmCountList <- list()
@@ -61,13 +60,11 @@ processByChr <- function(refData, bam, chrName, readLength){
   r.cnt.chr <- 0
   
   # setting chromesome filter
-  seqlevels(refData, force=TRUE) <- c(chrName)
-  
-  annoDB.chr <- procGenome(refData, chrName, mc.cores=6)
-  
-  # deal with the paired-end case's situation.
-  bam0 <- rmShortInserts(bam, isizeMin=100)
-  bam.chr <- getBamReadsByChr(bam0, chrName)
+#   seqlevels(refData, force=TRUE) <- c(chrName)
+#   annoDB.chr <- procGenome(refData, chrName, mc.cores=6)
+#   
+#   bam0 <- rmShortInserts(bam, isizeMin=100)
+#   bam.chr <- getBamReadsByChr(bam0, chrName)
   
   # be careful with pbam case
   #pbam.chr <- procBam(bam.chr)  # reads is plit accroding to CIGAR codes
@@ -80,7 +77,7 @@ processByChr <- function(refData, bam, chrName, readLength){
   
   #for(idx in 1:length(annoDB.chr@transcripts)){
   
-  t.p <- function(idx){
+  txp <- function(idx){
     
     cat(paste("\n* processing", idx, "/", length(annoDB.chr@transcripts)," transcript"))
     
@@ -89,10 +86,10 @@ processByChr <- function(refData, bam, chrName, readLength){
     ts.num <- length(ts.name)
     
     # ignore the inference for the single isoform case
-    if(ts.num == 1){
-      #next
-      return(NULL)
-    }
+#     if(ts.num == 1){
+#       #next
+#       return(NULL)
+#     }
     
     ts.len <- getTxLength(annoDB.chr, idx)
     
@@ -121,24 +118,26 @@ processByChr <- function(refData, bam, chrName, readLength){
     # if no reads aligned to this reigon, no expresssion directly assign zero
     # next step is to estimate FPKM-value
     if(length(over.left) == 0 & length(over.right) == 0){
-      for(na in ts.name){  
-        txExList[[na]] <<- 0  
-        txExList.w[[na]] <<- 0
-      }
       #next
       return(NULL)
     }
-    
-    
-    r.weights <- c()
-    r.exPathList <- list()
-    
+     
     rid.set <- intersect(unique(queryHits(over.left)), unique(queryHits(over.right)))
     rid.num <- length(rid.set)
+
+    ### reture value for single exon case
+    if(ts.num == 1){
+      fpkm.count <- rid.num/ts.len[1]
+      tx.res <- list("EM"=c(1), "WEM"=c(1), "fpkmC"=fpkm.count, "fpkmC.wem"= fpkm.count, "readC"= rid.num, "tsName" = ts.name)
+      return(tx.res)
+    }
+
+    ###prepare the process for the multi-exon case
+    # maintanced results for the transcript
     rtMat <- matrix(nrow= rid.num, ncol=ts.num)
     ftMat.len <- matrix(nrow= rid.num, ncol=ts.num)
     r.weights <- numeric(rid.num)
-    
+    r.exPathList <- list()
     ri <- 1
     ridnames <- numeric(rid.num)
     
@@ -219,16 +218,14 @@ processByChr <- function(refData, bam, chrName, readLength){
       ri <<- ri + 1   
      } # loop of read process
     
-    # loop for processing reads
-    #invisible(sapply(rid.set, r.p))
-    sapply(rid.set, r.p)
-    # parallel version
-    #n.mc <- detectCores(logical = F)
-    #invisible(mclapply(rid.set, r.p, mc.cores=2))
+    # note: shared varible can not be used with mclapply
+    invisible(sapply(rid.set, r.p))
+    # sapply(rid.set, r.p)
 
+    # the reads is too few to be used set threshold here.
     if(ri == 1) return(NULL) #next
     
-    #Trunck the nonused
+    #Trunck the unused
     ftMat.len <- matrix(ftMat.len[1:(ri-1),], nrow= ri-1)
     rtMat <- matrix(rtMat[1:(ri-1),], nrow = ri-1)
     r.weights <- r.weights[1:(ri-1)]
@@ -243,7 +240,6 @@ processByChr <- function(refData, bam, chrName, readLength){
     #colnames(rtMat) <- ts.name
     
     # do Parameters Estimation
-    
     theta.w <- EM_estimator(r.weights, 1000, rtMat, ftMat.len, ts.len, TRUE)
     theta   <- EM_estimator(r.weights, 1000, rtMat, ftMat.len, ts.len)
     
@@ -257,31 +253,36 @@ processByChr <- function(refData, bam, chrName, readLength){
     fpkm.count.w <- fpkm.count.w/ts.len 
      
     
-    for(k in 1:length(ts.len)){
-      txExList[[ts.name[k]]] <<- theta[k]
-      fpkmCountList[[ts.name[k]]] <<- fpkm.count[k]
-      
-      txExList.w[[ts.name[k]]] <<- theta.w[k]
-      fpkmCountList.w[[ts.name[k]]] <<- fpkm.count.w[k]    
-    }
+#     for(k in 1:length(ts.len)){
+#       txExList[[ts.name[k]]] <<- theta[k]
+#       fpkmCountList[[ts.name[k]]] <<- fpkm.count[k]
+#       
+#       txExList.w[[ts.name[k]]] <<- theta.w[k]
+#       fpkmCountList.w[[ts.name[k]]] <<- fpkm.count.w[k]    
+#     }
     
+    # real active reads
     r.cnt.tx <- nrow(rtMat.th)
-    r.cnt.chr <<- r.cnt.chr + r.cnt.tx
+    # r.cnt.chr <- r.cnt.chr + r.cnt.tx
     
-    r.cnt.chr
+
+    ## to do things
+    #return necessary results for each transcript
+    
+    tx.res <- list("EM"=theta, "WEM"=theta.w, "fpkmC"=fpkm.count, "fpkmC.wem"= fpkm.count.w, "readC"= r.cnt.tx, "tsName" = ts.name)
     
   }# end loop for transcript processing
   
-  cnt <- mclapply(1:length(annoDB.chr@transcripts), t.p, mc.cores = 8)
+  txs.res <- mclapply(1:length(annoDB.chr@transcripts), txp, mc.cores = mc)
   
   # restore the default
-  refData <- restoreSeqlevels(refData)  #note this is necessary before next run
+  # refData <- restoreSeqlevels(refData)  #note this is necessary before next run
   
   ## res <- list("p"=txExList, "fpkmC"=fpkmCountList, "chrReadCount"=r.cnt.chr)
   ## res.w <- list("p"=txExList.w, "fpkmC"=fpkmCountList.w, "chrReadCount"=r.cnt.chr)
   ## out <- list("EM"=res, "weighted"=res.w)
-  
-  cnt
+
+  ## accemble the results for the transcript
 }
 
 

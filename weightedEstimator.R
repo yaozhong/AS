@@ -69,9 +69,9 @@ for(chrName in human_chr_namelist){
   txEx <- processByChr(annoDB.chr=annoDB.chr, bam.chr=bam.chr, chrName, readLength=75, mc=1)
   t_proc <- proc.time() - t_processing
   cat(paste("\n-> using time", round(t_proc[3]/60,2) , " min. \n"))
+  
   # reset
   refData <- restoreSeqlevels(refData) 
-  
   
   #res[[chrName]] <- txEx$"EM"
   #res.w[[chrName]] <- txEx$"weighted"
