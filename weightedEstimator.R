@@ -66,7 +66,7 @@ for(chrName in human_chr_namelist){
   
   # pre-process for chromesome
   t_processing <- proc.time()
-  txEx <- processByChr(annoDB.chr=annoDB.chr, bam.chr=bam.chr, chrName, readLength=75, mc=1)
+  txEx <- processByChr(annoDB.chr=annoDB.chr, bam.chr=bam.chr, chrName, readLength=75, mc=6)
   t_proc <- proc.time() - t_processing
   cat(paste("\n-> using time", round(t_proc[3]/60,2) , " min. \n"))
   
@@ -76,8 +76,6 @@ for(chrName in human_chr_namelist){
   #res[[chrName]] <- txEx$"EM"
   #res.w[[chrName]] <- txEx$"weighted"
 }
-
-
 
 
 #reads.chr.count <- unlist(lapply(res, function(x) { x$chrReadCount}))

@@ -10,7 +10,7 @@ EM_estimator <- function(r.weights, maxIter, rtMat, ftMat.len, ts.len, RD=FALSE,
   theta.c <- theta.0
   theta.p <- theta.0
   
-  r.weights <- r.weights/sum(r.weights)
+  #r.weights <- r.weights/sum(r.weights)
   
   for(i in seq(1,maxIter)){
     
@@ -18,9 +18,10 @@ EM_estimator <- function(r.weights, maxIter, rtMat, ftMat.len, ts.len, RD=FALSE,
       cat(paste("\n EM iteration:[", i, "] ... "))
     }
     
-    # E-step
-    pt.mat <- t(apply(ftMat.len, 1, function(x) { p <- (theta.c)/(ts.len-x+1) }))
+    # E-step ** Note P(fragment is needed to be considerd)
+    pt.mat <- t(apply(ftMat.len, 1, function(x) { dnorm(x,FRAG.LEN.MEAN,FRAG.LEN.SD)*(theta.c)/(ts.len-x+1) }))
     pt.mat <- pt.mat * rtMat
+    
     pt.mat <- t(apply(pt.mat, 1, function(x) {x/sum(x)}))
     
     # M-step
@@ -51,5 +52,14 @@ EM_estimator <- function(r.weights, maxIter, rtMat, ftMat.len, ts.len, RD=FALSE,
   
   theta.c
 }
+
+# fragment distribution
+getCasperFragDistr <- function(genDB, genomeName, bam){
+  
+  humanDB <- procGenome(genDB, genomeName, mc.cores=6)
+  distrs <- getDistrs(humanDB, bam=bam, readLength=75)
+}
+
+
 
 

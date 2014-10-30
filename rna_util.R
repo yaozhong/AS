@@ -4,6 +4,11 @@ library(casper)
 library(parallel)
 source("./estimator.R")
 
+# fragment 
+FRAG.LEN.MEAN <- 187
+FRAG.LEN.SD <- 50
+
+
 loadingData <- function(ref, bamfile, genomeName="hg19"){
   
   # loading the reference
@@ -155,18 +160,18 @@ processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
        e.idx.right <- subjectHits(over.right)[sel.idx]
        e.ids.right <- names(exonGRs)[e.idx.right]
        
+       ## pay attention for the results, this 
        e.ids <- union(e.ids.left, e.ids.right)
        
        ## NOTE DONOT directly subset GRanges OBJECT!!! Very Very slow 
        cfrag.start <- start(frags.tx.left)[rid]
        cfrag.end <- end(frags.tx.right)[rid]
          
-       r.weight <- max(ex.weight[e.ids])
-       r.exPath <- e.ids
       
-       r.weights[ri] <<- r.weight
+       # save the exon path information
+       r.exPath <- e.ids
        r.exPathList[[as.character(rid)]] <<- r.exPath 
-     
+       
       ## generate compatible matrix  
       for(j in  1:ts.num ){
         res <- as.numeric(r.exPath) %in% ts[[j]]
@@ -187,6 +192,16 @@ processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
       end.ex.fg   <- min(cfrag.end, exonGRs.end[ex.last.idx])
 
       if(ex.first.idx != ex.last.idx){
+        
+        # check if there is any ambigiuous exons in between
+        s.idx <- min(ex.first.idx, ex.last.idx)
+        e.idx <- max(ex.first.idx, ex.last.idx)
+        
+        ## scan any exons in between and extend
+        for(ei in (s.idx+1):(e.idx-1)){ 
+          if(names(exonGRs)[ei] %in% e.ids == FALSE) e.ids <- c(e.ids, names(exonGRs)[ei])
+        }
+        
         # multi exon cases
         for(tj in 1:ts.num){
         
@@ -196,11 +211,8 @@ processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
             
             cfrag.len <- (exonGRs.end[ex.first.idx] - start.ex.fg) + (end.ex.fg - exonGRs.start[ex.last.idx])
             
-            if(abs(ex.first.idx - ex.last.idx) > 1){
-                  
-                s.idx <- min(ex.first.idx, ex.last.idx)
-                e.idx <- max(ex.first.idx, ex.last.idx)
-                
+            #if(abs(ex.first.idx - ex.last.idx) > 1){
+            if(e.idx - s.idx > 1){
                 for(ei in (s.idx+1):(e.idx-1)){
                   cfrag.len <- cfrag.len + width(exonGRs)[ei]*etMat[ei, tj]
                 }
@@ -214,6 +226,16 @@ processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
         ftMat.len[ri,] <<- rep(cfrag.len, ts.num) * rtMat[ri,]
       }
       
+      # read filter 2:  consider the p
+      fp <- dnorm(ftMat.len[ri,], FRAG.LEN.MEAN, FRAG.LEN.SD)
+      cond <- fp * rtMat[ri,]
+      if(sum(cond) == 0){
+        return(NULL)
+      }
+      
+      r.weight <- max(ex.weight[e.ids])
+      r.weights[ri] <<- r.weight
+      
       ridnames[ri] <<- rid
       ri <<- ri + 1   
      } # loop of read process
@@ -225,6 +247,8 @@ processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
     # the reads is too few to be used set threshold here.
     if(ri == 1) return(NULL) #next
     
+    # 
+
     #Trunck the unused
     ftMat.len <- matrix(ftMat.len[1:(ri-1),], nrow= ri-1)
     rtMat <- matrix(rtMat[1:(ri-1),], nrow = ri-1)
@@ -232,7 +256,8 @@ processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
     ridnames <- ridnames[1:(ri-1)]
     
     colnames(rtMat) <- names(ts)
-    r.weights <- r.weights/sum(r.weights) 
+    
+    #r.weights <- r.weights/sum(r.weights) 
 
     rownames(ftMat.len) <- ridnames
     rownames(rtMat) <- ridnames
