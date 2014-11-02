@@ -26,9 +26,9 @@ EM_estimator <- function(r.weights, maxIter, rtMat, ftMat.len, ts.len, RD=FALSE,
     
     # M-step
     if(RD){
-      theta <- apply(pt.mat, 2, function(x){ sum(r.weights*x, na.rm=T)})
+      theta <- apply(pt.mat, 2, function(x){ sum(r.weights*x, na.rm=TRUE)})
     }else{ 
-      theta <- apply(pt.mat, 2, function(x) {sum(x, na.rm=T)})
+      theta <- apply(pt.mat, 2, function(x) {sum(x,na.rm=TRUE)})
     }
     
     
@@ -53,12 +53,6 @@ EM_estimator <- function(r.weights, maxIter, rtMat, ftMat.len, ts.len, RD=FALSE,
   theta.c
 }
 
-# fragment distribution
-getCasperFragDistr <- function(genDB, genomeName, bam){
-  
-  humanDB <- procGenome(genDB, genomeName, mc.cores=6)
-  distrs <- getDistrs(humanDB, bam=bam, readLength=75)
-}
 
 
 

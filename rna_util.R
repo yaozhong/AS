@@ -104,9 +104,12 @@ processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
     # calculate exon weight
     ex.weight <- 1/apply(etMat,1,sum)
     ex.weight <- ex.weight/sum(ex.weight)
+
+    exonGRs.start <- start(exonGRs)
+    exonGRs.end <- end(exonGRs)
     
-    tx.start <- min(start(annoDB.chr@islands[[idx]]))
-    tx.end   <- max(end(annoDB.chr@islands[[idx]]))
+    tx.start <- min(exonGRs.start)
+    tx.end   <- max(exonGRs.end)
     
     # filter fragments in the transcript
     sel.idx.left <-  which(start(frags.left) >= tx.start & (end(frags.left) <= tx.end) )
@@ -146,8 +149,7 @@ processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
     ri <- 1
     ridnames <- numeric(rid.num)
     
-    exonGRs.start <- start(exonGRs)
-    exonGRs.end <- end(exonGRs)
+    
     
     #for(rid in rid.set){
     r.p <- function(rid){
@@ -185,8 +187,11 @@ processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
         return(NULL)
       }
 
-      ex.first.idx <- e.idx.left[1]
-      ex.last.idx  <- e.idx.right[length(e.idx.right)]
+      #ex.first.idx <- e.idx.left[1]
+      #ex.last.idx  <- e.idx.right[length(e.idx.right)]
+      #note the exonGRs is in reverse order
+      ex.first.idx <- e.idx.left[length(e.idx.left)]
+      ex.last.idx  <- e.idx.right[1] 
      
       start.ex.fg <- max(cfrag.start, exonGRs.start[ex.first.idx])
       end.ex.fg   <- min(cfrag.end, exonGRs.end[ex.last.idx])
@@ -209,7 +214,7 @@ processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
             ftMat.len[ri,tj] <<- 0
           }else{
             
-            cfrag.len <- (exonGRs.end[ex.first.idx] - start.ex.fg) + (end.ex.fg - exonGRs.start[ex.last.idx])
+            cfrag.len <- (exonGRs.end[ex.first.idx] - start.ex.fg + 1) + (end.ex.fg - exonGRs.start[ex.last.idx] + 1)
             
             #if(abs(ex.first.idx - ex.last.idx) > 1){
             if(e.idx - s.idx > 1){
@@ -222,16 +227,16 @@ processByChr <- function(annoDB.chr, bam.chr, chrName, readLength, mc){
         }
       }else{
         # single exon case
-        cfrag.len <- end.ex.fg - start.ex.fg
+        cfrag.len <- end.ex.fg - start.ex.fg + 1
         ftMat.len[ri,] <<- rep(cfrag.len, ts.num) * rtMat[ri,]
       }
       
       # read filter 2:  consider the p
-      fp <- dnorm(ftMat.len[ri,], FRAG.LEN.MEAN, FRAG.LEN.SD)
-      cond <- fp * rtMat[ri,]
-      if(sum(cond) == 0){
-        return(NULL)
-      }
+      #fp <- dnorm(ftMat.len[ri,], FRAG.LEN.MEAN, FRAG.LEN.SD)
+      #cond <- fp * rtMat[ri,]
+      #if(sum(cond) == 0){
+      #  return(NULL)
+      #}
       
       r.weight <- max(ex.weight[e.ids])
       r.weights[ri] <<- r.weight

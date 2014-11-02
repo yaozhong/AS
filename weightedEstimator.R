@@ -18,6 +18,7 @@ setwd("./AS/weighted/")
 library(GenomicFeatures)
 library(Rsamtools)
 library(parallel)
+library(casper)
 
 
 main()
@@ -66,7 +67,7 @@ for(chrName in human_chr_namelist){
   
   # pre-process for chromesome
   t_processing <- proc.time()
-  txEx <- processByChr(annoDB.chr=annoDB.chr, bam.chr=bam.chr, chrName, readLength=75, mc=6)
+  txEx <- processByChr(annoDB.chr=annoDB.chr, bam.chr=bam.chr, chrName, readLength=75, mc=1)
   t_proc <- proc.time() - t_processing
   cat(paste("\n-> using time", round(t_proc[3]/60,2) , " min. \n"))
   
