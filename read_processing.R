@@ -93,8 +93,9 @@ processByGene <- function(tsDB, idx, frags, readLength=75){
     if(rid.num == 0) return(NULL)
 
     if(ts.num == 1){
+      # single transcript do not exists any fustion reads problem.
       fpkm.count <- rid.num/ts.len[1]
-      tx.res <- list("EM"=c(1), "WEM"=c(1), "fpkmC"=fpkm.count, "fpkmC.wem"= fpkm.count, "readC"= rid.num)
+      tx.res <- list("EM"=c(1), "WEM"=c(1), "fpkmC"=fpkm.count, "fpkmC.wem"= fpkm.count, "readC"= rid.num, "isoName"=ts.name)
       return(tx.res)
     }
 
@@ -110,12 +111,15 @@ processByGene <- function(tsDB, idx, frags, readLength=75){
        e.idx.right <- subjectHits(over.right)[sel.idx]
        e.ids.right <- names(exonGRs)[e.idx.right]
 
-       e.ids <- sort(unique(c(e.ids.left, e.ids.right)))
+       # note if sort with character, "10000", "9999" may not be properly ordered
+       e.ids <- sort(as.numeric(unique(c(e.ids.left, e.ids.right))))
+       as.character(e.ids)
     }
 
     # matrix generation
     r2exs <- lapply(rid.set, getRead2Exons)
     rtMat <- getReadTxMat(r2exs, ts)
+
     ###############################################################
 
     
@@ -128,7 +132,7 @@ processByGene <- function(tsDB, idx, frags, readLength=75){
 
 
     getFragLenInTx <- function(r.idx){
-
+      
     	e.ids <- r2exs[[r.idx]]
 
     	start.ex.fg <- max(cfrag.start[r.idx], exonGRs.start[e.ids[1]])
@@ -171,6 +175,23 @@ processByGene <- function(tsDB, idx, frags, readLength=75){
     r.weights <- sapply(1:rid.num, getReadWeights)
 
     ##############################################################
+    # filter-out illeagal reads for multiple transcript case.
+    b.idx <- which(apply(rtMat, 1, function(x) {sum(x) == 0}))
+    if(length(b.idx) != 0){
+    rid.num <- rid.num - length(b.idx)
+	  if(rid.num == 0) return(NULL)
+    
+    if(rid.num == 1) {
+      rtMat <- matrix(rtMat[-b.idx,], nrow=1)
+      ftMat <- matrix(ftMat[-b.idx,], nrow=1)
+    }else{
+      rtMat <- rtMat[-b.idx,]
+      ftMat <- ftMat[-b.idx,]
+    }
+    r.weights <- r.weights[-b.idx]
+    }
+    
+    ###############################################################
 
     # EM-algorithm
 	  ts.len <- unname(ts.len)
@@ -186,8 +207,8 @@ processByGene <- function(tsDB, idx, frags, readLength=75){
     rtMat.th.w <- t(apply(rtMat, 1, function(x, t) {x*t}, t=theta.w) )
     fpkm.count.w <- apply(rtMat.th.w, 2, sum)
     fpkm.count.w <- fpkm.count.w/ts.len 
-
-    tx.res <- list("EM"=theta, "WEM"=theta.w, "fpkmC"=fpkm.count, "fpkmC.wem"= fpkm.count.w, "readC"= length(r.weights))
+    
+    tx.res <- list("EM"=theta, "WEM"=theta.w, "fpkmC"=fpkm.count, "fpkmC.wem"= fpkm.count.w, "readC"= rid.num, "isoName"=ts.name)
 
 }
 

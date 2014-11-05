@@ -33,6 +33,7 @@ EM_estimator <- function(r.weights, maxIter, rtMat, ftMat.len, ts.len, RD=FALSE,
     
     
     theta <- theta/sum(theta)
+    if(any(is.na(theta))) {return(NULL)}
     
     # Update
     theta.p <- theta.c
